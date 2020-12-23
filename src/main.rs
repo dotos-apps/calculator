@@ -23,6 +23,8 @@ static INPUT_BINDINGS: [(&'static str, &'static str); 15] = [
     ("num_pad_add", " + ")
 ];
 
+mod errors;
+
 struct Calc {
     builder: gtk::Builder,
 }
@@ -58,11 +60,12 @@ impl Calc {
         history.set_lines(3);
 
         let equals: gtk::Button = self.builder.get_object("equals").unwrap();
+        let builder = self.builder.clone();
         equals.connect_clicked(move |_| {
             let expression = calculation.get_text().to_string();
             let result = meval::eval_str(&expression);
             
-            match (result) {
+            match result {
                 Ok(result) => {
                     let result = result.to_string();
 
@@ -72,14 +75,11 @@ impl Calc {
                     history.set_text(&format!("{}\n{}", history.get_text(), expression));
                     history.set_lines(3);
                 }
-                Err(_) => {
-                    
-                }
+                Err(_) => errors::math_error_dialog(&builder)
             }
         });
 
         window.show_all();
-        gtk::main();
     }
 }
 
@@ -88,4 +88,6 @@ fn main() {
 
     let mut calc = Calc::new();
     calc.build_ui();
+
+    gtk::main();
 }
