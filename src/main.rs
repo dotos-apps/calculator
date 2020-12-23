@@ -1,38 +1,91 @@
 extern crate gtk;
-extern crate gio;
+extern crate meval;
 
 use gtk::prelude::*;
-use gio::prelude::*;
-
-use gtk::{Application, Entry};
 
 static LAYOUT_GLADE: &str = include_str!("layout.glade");
 
-fn build_ui(application: &gtk::Application) {
-    let builder = gtk::Builder::from_string(LAYOUT_GLADE);
+static INPUT_BINDINGS: [(&'static str, &'static str); 15] = [
+    ("num_pad_0", "0"),
+    ("num_pad_1", "1"),
+    ("num_pad_2", "2"),
+    ("num_pad_3", "3"),
+    ("num_pad_4", "4"),
+    ("num_pad_5", "5"),
+    ("num_pad_6", "6"),
+    ("num_pad_7", "7"),
+    ("num_pad_8", "8"),
+    ("num_pad_9", "9"),
+    ("num_pad_dot", "."),
+    ("num_pad_div", " / "),
+    ("num_pad_mult", " * "),
+    ("num_pad_sub", " - "),
+    ("num_pad_add", " + ")
+];
 
-    let window: gtk::Window = builder.get_object("calculator").unwrap();
-    // let button: gtk::Button = builder.get_object("button1").unwrap();
-    // let dialog: gtk::MessageDialog = builder.get_object("messagedialog1").unwrap();
+struct Calc {
+    builder: gtk::Builder,
+}
 
-    // button.connect_clicked(move |_| {
-    //     dialog.run();
-    //     dialog.hide();
-    // });
+impl Calc {
+    fn new() -> Self {
+        Calc {
+            builder: gtk::Builder::from_string(LAYOUT_GLADE),
+        }
+    }
 
-    window.show_all();
-    gtk::main();
+    fn build_ui(&mut self) {
+        let window: gtk::Window = self.builder.get_object("calculator")
+                                              .unwrap();
+        
+        let calculation: gtk::Entry = self.builder.get_object("calculation").unwrap();
+
+        for &(id, text) in &INPUT_BINDINGS {
+            let calculation = calculation.clone();
+            let el: gtk::Button = self.builder.get_object(id).unwrap();
+            el.connect_clicked(move |_| {
+                let pos = calculation.get_position();
+                let buffer = calculation.get_buffer();
+
+                buffer.insert_text(pos as u16, text);
+                
+                calculation.grab_focus();
+                calculation.set_position(pos + text.len() as i32);
+            });
+        }
+
+        let history: gtk::Label = self.builder.get_object("history").unwrap();
+        history.set_lines(3);
+
+        let equals: gtk::Button = self.builder.get_object("equals").unwrap();
+        equals.connect_clicked(move |_| {
+            let expression = calculation.get_text().to_string();
+            let result = meval::eval_str(&expression);
+            
+            match (result) {
+                Ok(result) => {
+                    let result = result.to_string();
+
+                    calculation.set_text(&result);
+                    calculation.set_position(result.len() as i32);
+
+                    history.set_text(&format!("{}\n{}", history.get_text(), expression));
+                    history.set_lines(3);
+                }
+                Err(_) => {
+                    
+                }
+            }
+        });
+
+        window.show_all();
+        gtk::main();
+    }
 }
 
 fn main() {
-    let application = Application::new(
-        Some("co.dothq.gtk-demo"),
-        Default::default()
-    ).expect("failed to initialize GTK application");
+    gtk::init().expect("Failed to initialize GTK");
 
-    application.connect_activate(move |app| {
-        build_ui(app);
-    });
-
-    application.run(&[]);
+    let mut calc = Calc::new();
+    calc.build_ui();
 }
